@@ -1,0 +1,7 @@
+NUM_CLASSES: 196
+BATCH_SIZE: 16
+model_name: 'resnet18'
+feature_extract: False
+NUM_EPOCH: 100
+lr: 1e-2 # learning rate
+momentum: 0.8 #momentum
