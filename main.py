@@ -1,7 +1,7 @@
 import torch.optim as optim
-from Vehicle_Identification.utils import *
-from Vehicle_Identification.ops import *
-from Vehicle_Identification.data import data_transforms,label_transform
+from utils import *
+from ops import *
+from data import data_transforms,label_transform, Standford_Cars_Dataset
 import deeplake
 from tqdm import tqdm
 import time
@@ -19,7 +19,7 @@ def train_model(model, dataloaders, criterion, optimizer, cfg):
 
     for epoch in epoch_pbar:
         # Each epoch has a training and validation phase
-        for phase in ['train', 'test']:
+        for phase in ['train', 'val']:
             if phase == 'train':
                 model.train()  # Set model to training mode
             else:
@@ -59,10 +59,10 @@ def train_model(model, dataloaders, criterion, optimizer, cfg):
                         })            
         
             # deep copy the model
-            if phase == 'test' and epoch_acc > best_acc:
+            if phase == 'val' and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
-            if phase == 'test':
+            if phase == 'val':
                 val_acc_history.append(epoch_acc)    
 
     time_elapsed = time.time() - since
@@ -78,12 +78,17 @@ if __name__=='__main__':
     
     cfg = get_config()
     ds_dict = {x :deeplake.load(f"hub://activeloop/stanford-cars-{x}") for x in ['train','test']}
+    train_ds, val_ds = ds_dict['train'].random_split([0.8, 0.2])
+    train_ds = Standford_Cars_Dataset(ds_dict['train'],data_transforms['train'],data_dir = './data/')
+    train_ds[1]
+    # ds_dict['train'] = train_ds
+    # ds_dict['val'] = val_ds
     dataloaders_dict = {
                     x: ds_dict[x].pytorch(num_workers=0, batch_size= cfg['BATCH_SIZE'],
                                         transform={'images': data_transforms[x], 'car_models':label_transform}, 
                                         collate_fn = custom_collate_fn, shuffle=True, 
                                         decode_method = {'images':'pil','car_models':'data'}) 
-                    for x in ['train','test']
+                    for x in ['train', 'test']
                     }
     
     net = initialize_model(cfg)
