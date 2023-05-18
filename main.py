@@ -10,7 +10,7 @@ import argparse
 
 def parser():
     parser = argparse.ArgumentParser(description='NA')
-    parser.add_argument('-config', '--config_dir', default='config.yaml', help='data version')
+    parser.add_argument('-config', '--config_path', default='config.yaml', help='data version')
     args = parser.parse_args()
     return args
 
@@ -82,7 +82,7 @@ def train_model(model, dataloaders, criterion, optimizer, cfg):
 
 if __name__=='__main__':
     args = parser() 
-    cfg = get_config(config_path=args.config)
+    cfg = get_config(config_path=args.config_path)
 
     ds_dict ={
         split : Standford_Cars_Dataset(data_dir = cfg['data_dir'], transform = data_transforms[split if split == 'train' else 'test'], split =split)
