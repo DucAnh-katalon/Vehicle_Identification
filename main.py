@@ -6,8 +6,13 @@ import deeplake
 from torch.utils.data import random_split, DataLoader
 from tqdm import tqdm
 import time
+import argparse
 
-
+def parser():
+    parser = argparse.ArgumentParser(description='NA')
+    parser.add_argument('-config', '--config_dir', default='config.yaml', help='data version')
+    args = parser.parse_args()
+    return args
 
 def train_model(model, dataloaders, criterion, optimizer, cfg):
     since = time.time()
@@ -76,8 +81,8 @@ def train_model(model, dataloaders, criterion, optimizer, cfg):
 
 
 if __name__=='__main__':
-    
-    cfg = get_config()
+    args = parser() 
+    cfg = get_config(config_path=args.config)
 
     ds_dict ={
         split : Standford_Cars_Dataset(data_dir = cfg['data_dir'], transform = data_transforms[split if split == 'train' else 'test'], split =split)
