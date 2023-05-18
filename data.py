@@ -3,6 +3,7 @@ import deeplake
 from deeplake.core.sample import Sample
 from torchvision import datasets, models, transforms
 import torch
+import pandas as pd
 from pathlib import Path
 from tqdm import tqdm
 import io,os
@@ -37,46 +38,16 @@ data_transforms = {
             transforms.ToTensor(),
             transforms.Lambda(lambda x: x.repeat(3, 1, 1))  if im.mode!='RGB'  else NoneTransform(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])(im),
-    'val':lambda im: 
-        transforms.Compose([
-            transforms.Resize((224,224)),
-            # transforms.CenterCrop(input_size),
-            transforms.ToTensor(),
-            transforms.Lambda(lambda x: x.repeat(3, 1, 1))  if im.mode!='RGB'  else NoneTransform(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])(im),
+        ])(im)
 }
 
 class Standford_Cars_Dataset(Dataset):
     """Face Landmarks dataset."""
 
-    def __init__(self, ds, transform=None,data_dir = './data', extract_data = False):
-        """
-        Arguments:
-            csv_file (string): Path to the csv file with annotations.
-            root_dir (string): Directory with all the images.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
-        """
-        self.ds = ds
-        self.data_dir = Path(data_dir)
-
+    def __init__(self, data_dir = './data',split ='train', transform = None, extract_data = False):
+        self.data_dir = Path(data_dir) / split
         if not os.path.exists(data_dir) or extract_data:
-            print("extracting....")
-            os.makedirs(self.data_dir, exist_ok=True)
-            for idx,entry in tqdm(enumerate(self.ds),total = len(self.ds)):
-                label = entry['car_models'].data()['value'][0]
-                descript_label = entry['car_models'].data()['text'][0]
-                img_data = Sample(array = entry['images'].data()['value']).compressed_bytes(compression='jpeg')
-
-                label_dir = self.data_dir / str(label)
-                if not os.path.exists(label_dir):
-                    os.mkdir(label_dir)
-                    open(label_dir / 'description.txt','w').write(descript_label)
-
-                fn = label_dir / f'{idx}.jpeg'
-                Image.open(io.BytesIO(img_data)).save(fn)
+            extract_data_from_deeplake(self.data_dir.parent)
         
         self.images = []
         self.labels = []
@@ -88,12 +59,46 @@ class Standford_Cars_Dataset(Dataset):
         self.transform = transform
 
     def __len__(self):
-        return len(self.ds)
+        return len(self.images)
 
     def __getitem__(self, idx):
         sample = Image.open(self.images[idx])
         label = self.labels[idx]
-        if self.transform:
+        if self.transform:            
             sample = self.transform(sample)
-
         return sample,label
+
+def extract_data_from_deeplake(data_dir:Path, val_set_ratio:float= 0.2):
+    print("extracting....")
+    os.makedirs(data_dir, exist_ok=True)
+    ds_dict ={split: deeplake.load(f"hub://activeloop/stanford-cars-{split}") for split in ['train','test']}
+    
+    if val_set_ratio > 0:
+        val_idx = random_val_idx(ds_dict['train'],val_set_ratio )
+        os.makedirs(data_dir / 'val', exist_ok=True)
+        
+    for split, ds in ds_dict.items():
+        os.makedirs(data_dir / split, exist_ok=True)
+        print(f"Extracting {split} set")
+        for idx,entry in tqdm(enumerate(ds),total = len(ds)):
+            label = entry['car_models'].data()['value'][0]
+            descript_label = entry['car_models'].data()['text'][0]
+            img_data = Sample(array = entry['images'].data()['value']).compressed_bytes(compression='jpeg')
+            if (idx not in val_idx) or (split =='test'):
+                label_dir = data_dir/ split /str(label) 
+            else:
+                label_dir = data_dir / 'val' /str(label)        
+            if not os.path.exists(label_dir):
+                os.mkdir(label_dir)
+                open(label_dir / 'description.txt','w').write(descript_label)
+
+            fn = label_dir / f'{idx}.jpeg'
+            Image.open(io.BytesIO(img_data)).save(fn)
+
+def random_val_idx(ds, val_set_ratio) ->list:
+    idx_df  = pd.DataFrame(ds['car_models'].data()['value'],columns =['label']).reset_index()
+    val_idx = []
+    for  _,gr in idx_df.groupby('label'):
+        val_size = int(gr.shape[0] * val_set_ratio)
+        val_idx += gr.sample(val_size)['index'].values.tolist()
+    return val_idx

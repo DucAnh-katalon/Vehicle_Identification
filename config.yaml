@@ -1,5 +1,6 @@
+data_dir : './data'
 NUM_CLASSES: 196
-BATCH_SIZE: 16
+BATCH_SIZE: 2
 model_name: 'resnet18'
 feature_extract: True
 NUM_EPOCH: 100
