@@ -1,8 +1,10 @@
 data_dir : './data'
+output: './',
 NUM_CLASSES: 196
-BATCH_SIZE: 2
-model_name: 'resnet18'
+BATCH_SIZE: 32
+model_name: 'resnet50d'
 feature_extract: True
 NUM_EPOCH: 100
-lr: 0.003 # learning rate
-momentum: 0.8 #momentum
+lr: 0.002 # learning rate
+momentum: 0.7 #momentum
+warm_up: 10

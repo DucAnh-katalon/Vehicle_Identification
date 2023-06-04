@@ -3,7 +3,7 @@ import time
 import copy
 import numpy as np
 import torch.nn as nn
-
+import timm
 import torch 
 import numpy
 from tqdm import tqdm
@@ -15,9 +15,10 @@ def set_parameter_requires_grad(model, feature_extracting):
             param.requires_grad = False
 
 def custom_collate_fn(original_batch):
-    labels = torch.tensor([ _['car_models'] for _ in original_batch], dtype = int)
-    imgs = torch.stack( [ _['images'] for _ in original_batch])
+    labels = torch.tensor([ _[1] for _ in original_batch], dtype = int)
+    imgs = torch.stack( [ _[0] for _ in original_batch])
     return imgs,labels
+
 
 def initialize_model(cfg):
     
@@ -25,23 +26,21 @@ def initialize_model(cfg):
     #   variables is model specific.
     model_ft = None
 
-    if cfg['model_name'] == "resnet18":
+    if cfg['model_name'] == "resnet50d":
         """
-            Resnet18
+            Resnet50d
         """
-        from torchvision.models import resnet18, ResNet18_Weights
-        model_ft = resnet18(weights=ResNet18_Weights.DEFAULT)
-        set_parameter_requires_grad(model_ft, cfg['feature_extract'])
-        num_ftrs = model_ft.fc.in_features
-        model_ft.fc = nn.Linear(num_ftrs, cfg['NUM_CLASSES'])
-        
+        # model_ft = timm.create_model("seresnextaa101d_32x8d",
+        #                              pretrained= True,
+        #                              num_classes = cfg['NUM_CLASSES']
+        #                             )
+        model_ft = timm.create_model("resnet50d",
+                                     pretrained= True,
+                                     num_classes = cfg['NUM_CLASSES']
+                                    )
+    
     else:
         print("Invalid model name, exiting...")
         exit()
     
     return model_ft
-
-
-
-
-

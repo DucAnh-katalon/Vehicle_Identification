@@ -8,6 +8,8 @@ from pathlib import Path
 from tqdm import tqdm
 import io,os
 from PIL import Image
+from timm.data.transforms_factory import create_transform 
+from timm.data.auto_augment import rand_augment_transform
 # Data augmentation and normalization for training
 # Just normalization for validation
 class NoneTransform(object):
@@ -23,26 +25,22 @@ def label_transform(cars_model):
     return cars_model['value'][0]
     
 data_transforms = {
-    'train': lambda im:  
-        transforms.Compose([
-            transforms.Resize((224,224)),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Lambda(lambda x: x.repeat(3, 1, 1))  if im.mode!='RGB'  else NoneTransform()  ,
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])(im),
-    'test':lambda im: 
-        transforms.Compose([
-            transforms.Resize((224,224)),
-            # transforms.CenterCrop(input_size),
-            transforms.ToTensor(),
-            transforms.Lambda(lambda x: x.repeat(3, 1, 1))  if im.mode!='RGB'  else NoneTransform(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])(im)
+    'train': create_transform(
+        input_size=224,
+        is_training=True,
+        auto_augment='rand-m5-mstd0.2',
+    ),
+    'test':create_transform(
+        input_size=224,
+    )
+
 }
 
+
+
+
 class Standford_Cars_Dataset(Dataset):
-    """Face Landmarks dataset."""
+    """Standford Car dataset."""
 
     def __init__(self, data_dir = './data',split ='train', transform = None, extract_data = False):
         self.data_dir = Path(data_dir) / split
@@ -62,8 +60,8 @@ class Standford_Cars_Dataset(Dataset):
         return len(self.images)
 
     def __getitem__(self, idx):
-        sample = Image.open(self.images[idx])
-        label = self.labels[idx]
+        sample = Image.open(self.images[idx]).convert('RGB')
+        label = int(self.labels[idx])
         if self.transform:            
             sample = self.transform(sample)
         return sample,label
